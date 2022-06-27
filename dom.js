@@ -65,6 +65,10 @@
       },
     };
 
+  function buf2hex(buffer) {
+    return [...new Uint8Array(buffer)].map((x) => x.toString(16).padStart(2, '0')).join(':');
+  }
+
   ASN1.prototype.toDOM = function (spaces) {
     spaces = spaces || '';
     var isOID = typeof oids === 'object' && this.tag.isUniversal() && this.tag.tagNumber == 0x06;
@@ -178,7 +182,9 @@
       }
     };
     node.onclick = function (event) {
-      const hex = this.innerText.replace(/\s+/g, '');
+      const pos = parseInt(this.getAttribute('pos'));
+      const end = parseInt(this.getAttribute('end'));
+      const hex = buf2hex(window.derBuffer.subarray(pos, end));
       navigator.clipboard.writeText(hex);
       event.stopPropagation();
     };
@@ -193,6 +199,8 @@
         node.appendChild(skip);
       }
     }
+    node.setAttribute('pos', this.posStart());
+    node.setAttribute('end', this.posEnd());
     this.toHexDOM_sub(node, 'tag', this.stream, this.posStart(), this.posLen());
     this.toHexDOM_sub(node, this.length >= 0 ? 'dlen' : 'ulen', this.stream, this.posLen(), this.posContent());
     if (this.sub === null) {

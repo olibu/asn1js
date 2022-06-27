@@ -72,6 +72,9 @@
     else el.innerText = string;
   }
   function decode(der, offset) {
+    // store der bufferof asn1 in window to copy it into clipboard on dump click
+    window.derBuffer = der;
+
     offset = offset || 0;
     tree.innerHTML = '';
     dump.innerHTML = '';
