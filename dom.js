@@ -66,7 +66,7 @@
     };
 
   function buf2hex(buffer) {
-    return [...new Uint8Array(buffer)].map((x) => x.toString(16).padStart(2, '0')).join(':');
+    return [...new Uint8Array(buffer)].map(x => x.toString(16).padStart(2, '0')).join('');
   }
 
   ASN1.prototype.toDOM = function (spaces) {
