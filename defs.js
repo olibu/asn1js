@@ -1,10 +1,10 @@
 // ASN.1 RFC definitions matcher
-// Copyright (c) 2023-2023 Lapo Luchini <lapo@lapo.it>
+// Copyright (c) 2023-2024 Lapo Luchini <lapo@lapo.it>
 
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
 // copyright notice and this permission notice appear in all copies.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 // WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -13,13 +13,7 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-(typeof define != 'undefined' ? define : function (factory) { 'use strict';
-    if (typeof module == 'object') module.exports = factory(function (name) { return require(name); });
-    else window.defs = factory(function (name) { return window[name.substring(2)]; });
-})(function (require) {
-'use strict';
-
-const rfc = require('./rfcdef');
+import { rfcdef } from './rfcdef.js';
 
 function translate(def, tn, stats) {
     if (def?.type == 'tag' && !def.explicit)
@@ -56,20 +50,20 @@ function firstUpper(s) {
     return s[0].toUpperCase() + s.slice(1);
 }
 
-class Defs {
+export class Defs {
 
     static moduleAndType(mod, name) {
         return Object.assign({ module: { oid: mod.oid, name: mod.name, source: mod.source } }, mod.types[name]);
     }
 
     static searchType(name) {
-        for (const mod of Object.values(rfc))
+        for (const mod of Object.values(rfcdef))
             if (name in mod.types) {
                 // console.log(name + ' found in ' + r.name);
                 // return r.types[name];
                 return Defs.moduleAndType(mod, name);
             }
-        throw 'Type not found: ' + name;
+        throw new Error('Type not found: ' + name);
     }
 
     static match(value, def, stats = { total: 0, recognized: 0, defs: {} }) {
@@ -96,12 +90,20 @@ class Defs {
                         type = def.content[0];
                     else {
                         let tn = subval.typeName().replaceAll('_', ' ');
-                        do {
+                        for (;;) {
                             type = def.content[j++];
-                            // type = translate(type, tn);
+                            if (!type || typeof type != 'object') break;
                             if (type?.type?.type)
                                 type = type.type;
-                        } while (type && typeof type == 'object' && ('optional' in type || 'default' in type) && type.name != 'ANY' && type.name != tn);
+                            if (type.type == 'defined') {
+                                let t2 = translate(type, tn);
+                                if (t2.type.name == tn) break; // exact match
+                                if (t2.type.name == 'ANY') break; // good enough
+                            }
+                            if (type.name == tn) break; // exact match
+                            if (type.name == 'ANY') break; // good enough
+                            if (!('optional' in type || 'default' in type)) break;
+                        }
                         if (type?.type == 'builtin' || type?.type == 'defined') {
                             let v = subval.content();
                             if (typeof v == 'string')
@@ -122,10 +124,10 @@ class Defs {
 
 }
 
-Defs.RFC = rfc;
+Defs.RFC = rfcdef;
 
 Defs.commonTypes = [
-    [ 'X.509 certificate', '1.3.6.1.5.5.7.0.18', 'Certificate' ], 
+    [ 'X.509 certificate', '1.3.6.1.5.5.7.0.18', 'Certificate' ],
     [ 'X.509 public key info', '1.3.6.1.5.5.7.0.18', 'SubjectPublicKeyInfo' ],
     [ 'CMS / PKCS#7 envelope', '1.2.840.113549.1.9.16.0.14', 'ContentInfo' ],
     [ 'PKCS#1 RSA private key', '1.2.840.113549.1.1.0.1', 'RSAPrivateKey' ],
@@ -133,8 +135,4 @@ Defs.commonTypes = [
     [ 'PKCS#8 private key', '1.2.840.113549.1.8.1.1', 'PrivateKeyInfo' ],
     [ 'PKCS#10 certification request', '1.2.840.113549.1.10.1.1', 'CertificationRequest' ],
     [ 'CMP PKI Message', '1.3.6.1.5.5.7.0.16', 'PKIMessage' ],
-].map(arr => ({ description: arr[0], ...Defs.moduleAndType(rfc[arr[1]], arr[2]) }));
-
-return Defs;
-
-});
+].map(arr => ({ description: arr[0], ...Defs.moduleAndType(rfcdef[arr[1]], arr[2]) }));

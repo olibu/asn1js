@@ -1,8 +1,8 @@
 #! /usr/bin/env node
-'use strict';
+
+import * as fs from 'node:fs';
 
 const
-    fs = require('fs'),
     patches = { // to fix some known RFCs' ASN.1 syntax errors
         0: [
             [ /\n\n[A-Z].*\n\f\n[A-Z].*\n\n/g, '' ], // page change
@@ -63,7 +63,7 @@ const reWhitespace = /(?:\s|--(?:-?[^\n-])*(?:\n|--))*/my;
 const reIdentifier = /[a-zA-Z](?:[-]?[a-zA-Z0-9])*/y;
 const reNumber = /0|[1-9][0-9]*/y;
 const reToken = /[(){},[\];]|::=|OPTIONAL|DEFAULT|NULL|TRUE|FALSE|\.\.|OF|SIZE|MIN|MAX|DEFINED BY|DEFINITIONS|TAGS|BEGIN|EXPORTS|IMPORTS|FROM|END/y;
-const reType = /ANY|BOOLEAN|INTEGER|(?:BIT|OCTET)\s+STRING|OBJECT\s+IDENTIFIER|SEQUENCE|SET|CHOICE|ENUMERATED|(?:Generalized|UTC)Time|(?:BMP|General|Graphic|IA5|ISO64|Numeric|Printable|Teletex|T61|Universal|UTF8|Videotex|Visible)String/y;
+const reType = /ANY|NULL|BOOLEAN|INTEGER|(?:BIT|OCTET)\s+STRING|OBJECT\s+IDENTIFIER|SEQUENCE|SET|CHOICE|ENUMERATED|(?:Generalized|UTC)Time|(?:BMP|General|Graphic|IA5|ISO64|Numeric|Printable|Teletex|T61|Universal|UTF8|Videotex|Visible)String/y;
 const reTagClass = /UNIVERSAL|APPLICATION|PRIVATE|/y;
 const reTagType = /IMPLICIT|EXPLICIT|/y;
 const reTagDefault = /(AUTOMATIC|IMPLICIT|EXPLICIT) TAGS|/y;
@@ -224,6 +224,7 @@ class Parser {
                 if (this.tryToken('DEFINED BY'))
                     x.definedBy = this.parseIdentifier();
                 break;
+            case 'NULL':
             case 'BOOLEAN':
             case 'OCTET STRING':
             case 'OBJECT IDENTIFIER':
@@ -288,12 +289,15 @@ class Parser {
                     this.expectToken(')');
                 }
                 break;
+            case 'UTCTime':
+            case 'GeneralizedTime':
+                break;
             default:
-                x.content = 'TODO:unknown';
+                x.warning = 'type unknown';
             }
         } catch (e) {
             console.log('[debug] parseBuiltinType content', e);
-            x.content = 'TODO:exception';
+            x.warning = 'type exception';
         }
         return x;
     }
@@ -515,10 +519,10 @@ while ((m = reModuleDefinition.exec(s))) {
     asn1[currentMod.oid] = currentMod;
 }
 /*asn1 = Object.keys(asn1).sort().reduce(
-    (obj, key) => { 
+    (obj, key) => {
         obj[key] = asn1[key];
         return obj;
-    }, 
+    },
     {}
 );*/
 fs.writeFileSync(process.argv[3], JSON.stringify(asn1, null, 2) + '\n', 'utf8');
